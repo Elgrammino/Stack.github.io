@@ -8,5 +8,5 @@ export function calculate(bottom,target,position){
  const top=(STACK.indexOf(bottom)+1)%52;
  const targetAt=(STACK.indexOf(target)-top+52)%52;
  const cut=(targetAt-(position-1)+52)%52;
- return {cut,cutAfter:cut?STACK[(top+cut-1)%52]:null,newTop:STACK[(top+cut)%52],newBottom:cut?STACK[(top+cut-1)%52]:bottom,target,position,bottom};
+ return {cut,cutAfter:cut?STACK[(top+cut-1)%52]:null,target,position};
 }
