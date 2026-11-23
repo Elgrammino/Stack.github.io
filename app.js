@@ -23,4 +23,39 @@ function goBack(){state.step=state.step==='result'?'position':state.step==='posi
 function startNewTrick(){state.bottom='9D';state.spectator=null;state.position=null;state.entry='';state.draftBottom=null;state.bottomSelectionMade=false;state.draftSpectator=null;state.step=state.useDefaultBottom?'spectator':'bottom';state.suit=null}
 stage.addEventListener('click',e=>{const button=e.target.closest('button');if(!button)return;if(button.dataset.suit){state.suit=button.dataset.suit;const draft=state.step==='bottom'?'draftBottom':'draftSpectator';if(state[draft]?.at(-1)!==state.suit)state[draft]=null;render();return}if(button.dataset.card){if(state.step==='bottom'){state.draftBottom=button.dataset.card;state.bottomSelectionMade=true}else state.draftSpectator=button.dataset.card;render();return}if(button.dataset.key){const key=button.dataset.key;if(key==='clear')state.entry='';else if(key==='delete')state.entry=state.entry.slice(0,-1);else if(state.entry.length<2)state.entry+=key;document.getElementById('position').textContent=state.entry||'—';document.getElementById('error').textContent='';persist();return}switch(button.dataset.action){case 'default-bottom':state.useDefaultBottom=!state.useDefaultBottom;startNewTrick();render();break;case 'theme':state.theme=state.theme==='dark'?'light':'dark';render();break;case 'back':goBack();break;case 'edit-bottom':state.step='bottom';state.suit=null;render();break;case 'edit-spectator':state.step='spectator';state.suit=null;render();break;case 'confirm-card':if(state.step==='bottom'&&state.draftBottom){state.bottom=state.draftBottom;state.step='spectator'}else if(state.step==='spectator'&&state.draftSpectator){state.spectator=state.draftSpectator;state.step='position'}state.suit=null;render();break;case 'calculate':if(!/^(?:[1-9]|[1-4][0-9]|5[0-2])$/.test(state.entry)){document.getElementById('error').textContent='Введи число от 1 до 52';return}state.position=Number(state.entry);state.step='result';render(e.detail>0);break;case 'restart':startNewTrick();render();break}});
 render();
-if('serviceWorker'in navigator)navigator.serviceWorker.register('./sw.js').catch(()=>{});
+if('serviceWorker'in navigator){
+  let refreshing=false;
+  let updateAccepted=false;
+  const showUpdate=registration=>{
+    if(!registration.waiting||!navigator.serviceWorker.controller||document.getElementById('update-notice'))return;
+    const notice=document.createElement('aside');
+    notice.id='update-notice';
+    notice.className='update-notice';
+    notice.setAttribute('role','status');
+    notice.innerHTML='<span>Доступно обновление</span><button type="button">Обновить</button>';
+    notice.querySelector('button').addEventListener('click',()=>{
+      persist();
+      updateAccepted=true;
+      notice.querySelector('button').disabled=true;
+      notice.querySelector('button').textContent='Обновляем…';
+      registration.waiting?.postMessage({type:'SKIP_WAITING'});
+    });
+    document.body.append(notice);
+  };
+  navigator.serviceWorker.addEventListener('controllerchange',()=>{
+    if(updateAccepted&&!refreshing){refreshing=true;location.reload()}
+  });
+  navigator.serviceWorker.register('./sw.js').then(registration=>{
+    showUpdate(registration);
+    registration.addEventListener('updatefound',()=>{
+      const worker=registration.installing;
+      worker?.addEventListener('statechange',()=>{
+        if(worker.state==='installed')showUpdate(registration);
+      });
+    });
+    registration.update().catch(()=>{});
+    document.addEventListener('visibilitychange',()=>{
+      if(!document.hidden)registration.update().catch(()=>{});
+    });
+  }).catch(()=>{});
+}
